@@ -50,7 +50,7 @@ def shuffle_data(
         idx = np.arange(X.shape[1])  # Shuffle trials
 
     rng = np.random.RandomState(seed)
-    rng.random.shuffle(idx)
+    rng.shuffle(idx)
 
     if X.ndim == 3:
         return X[idx, ...], y[idx, ...]
