@@ -8,6 +8,7 @@ import numpy as np
 import warnings
 from typing import Tuple, List, Union
 from tensorflow.data import Dataset
+from tensorflow.image import per_image_standardization
 from mne.decoding import UnsupervisedSpatialFilter
 from sklearn.decomposition import PCA
 
@@ -71,6 +72,7 @@ def load_MEG_dataset(
     training: bool = True,
     train_test_split: float = 0.75,
     batch_size: int = 32,
+    scale: bool = True,
     seed: int = 0,
 ) -> Union[
     Tuple[List[np.ndarray], List[np.ndarray]], Tuple[np.ndarray, np.ndarray], Dataset
@@ -101,6 +103,7 @@ def load_MEG_dataset(
         onset. Defaults to 20.
         window_width (List[int], optional): Window of data to use for the classifier. Defaults to [-5, 6].
         batch_size (int, optional): Batch size, to be used if using TF format. Defaults to 32.
+        scale (bool, optiomal): Whether to scale the data. Defaults to True.
         seed (int, optional): Random seed. Defaults to 0.
 
     Returns:
@@ -234,6 +237,14 @@ def load_MEG_dataset(
             + window_width[1],
         ]
 
+
+        if scale:
+            for i in range(X.shape[0]):
+                a = X[i, ...].std()
+                b = 1 / np.sqrt(X[i, ...].size)
+                c = a / b
+                X[i, ...] = (X[i, ...] - X[i, ...].mean())  / np.max(X[i, ...].std(), )
+
         # Check number of trials
         if X.shape[0] != 900:
             warnings.warn(
@@ -248,6 +259,8 @@ def load_MEG_dataset(
 
         print("Subject {0} complete".format(sub))
         print('--------------------------------------')
+
+
 
     # Concatenate/stack data data
     if len(X_append) > 1:
@@ -287,7 +300,8 @@ def load_MEG_dataset(
             y = y[:, int(y.shape[1] * train_test_split) :, ...]
 
     # Scale
-    X = scale_data(X)
+    # if scale:
+    #     X = scale_data(X)
 
     # Reshape data if necessary
     if trial_data_format == "1D":
@@ -312,16 +326,16 @@ def load_MEG_dataset(
     else:
         if mode == "individual":
             ds = [
-                Dataset.from_tensor_slices({"image": X, "label": y}).cache()
+                Dataset.from_tensor_slices({"image": X, "label": y}).cache().repeat(None)
                 for X, y in zip(X, y)
             ]
             if shuffle:
                 ds = [i.shuffle(10 * batch_size, seed=seed) for i in ds]
-            ds = [i.batch(batch_size) for i in ds]
+            ds = [i.batch(batch_size).as_numpy_iterator() for i in ds]
         else:
-            ds = Dataset.from_tensor_slices({"image": X, "label": y}).cache()
+            ds = Dataset.from_tensor_slices({"image": X, "label": y}).cache().repeat(None)
             if shuffle:
                 ds = ds.shuffle(10 * batch_size, seed=0)
-            ds = ds.batch(batch_size)
+            ds = ds.batch(batch_size).as_numpy_iterator()
 
         return ds
