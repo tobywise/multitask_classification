@@ -283,6 +283,10 @@ def load_MEG_dataset(
             X = X_append[0]
             y = y_append[0]
 
+    # Shuffle
+    if shuffle:
+        X, y = shuffle_data(X, y, seed=seed)
+
     # Train test split - TODO this splits only across trials currently
     if training:
         if X.ndim == 3:
@@ -312,8 +316,6 @@ def load_MEG_dataset(
 
     # Shuffle numpy format data if needed
     if output_format == "numpy":
-        if shuffle:
-            X, y = shuffle_data(X, y, seed=seed)
         if mode == "individual":
             X = np.split(X, X.shape[0], axis=0)
             y = np.split(y, y.shape[0], axis=0)
